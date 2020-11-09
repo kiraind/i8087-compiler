@@ -1,7 +1,8 @@
 const fs = require('fs')
 
 const getArgs = require('./getArgs.js')
-const { floatToHex } = require('./utils')
+const parse = require('./parse.js')
+const { floatToHex } = require('./utils.js')
 
 // <args>
 
@@ -61,9 +62,10 @@ const binary_fns = {
 const stack = []
 let postfix_symbols = []
 
-const infix_symbols = infix.split(' ')
+const infix_symbols = parse(infix)
 
 for(let i = 0; i < infix_symbols.length; i++) {
+    // replace substituted functions
     if(infix_symbols[i] in replacements) {
         const fn = infix_symbols[i]
         i++
