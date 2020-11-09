@@ -82,10 +82,12 @@ for(let i = 0; i < infix_symbols.length; i++) {
                 }
             }
         } else {
-            // todo error not '(' after function
+            throw new Error(`Отсутствует открывающая скобка после функции '${fn}'`)
         }
 
-        // todo test if start_i == i
+        if(start_i == i) {
+            throw new Error(`Пустой аргумент у функции '${fn}'`)
+        }
 
         const argument = infix_symbols.slice(start_i, i)
         const replacement = replacements[fn](argument)
@@ -104,9 +106,7 @@ infix_symbols.forEach(symbol => {
             const popped = stack.pop()
 
             if(popped === undefined) {
-                // todo error в выражении либо неверно поставлен разделитель, либо не согласованы скобки
-                console.error('неверно поставлен разделитель, либо не согласованы скобки')
-                process.exit(1)
+                throw new Error('Неверно поставлен разделитель, либо не согласованы скобки')
             } else if(popped === '(') {
                 break
             } else {
@@ -121,9 +121,7 @@ infix_symbols.forEach(symbol => {
 
         stack.push( symbol )
     } else {
-        // todo wtf symbol not clear
-        console.error('Unknown symbol `' + symbol + '`')
-        process.exit(1)
+        throw new Error(`Неизвестный символ '${symbol}'`)
     }
 })
 
@@ -132,9 +130,7 @@ while(stack.length > 0) {
     if(popped in binary_fns || popped in prefix_fns || popped in postfix_fns) {
         postfix_symbols.push(popped)
     } else {
-        // todo error не согласованы скобки
-        console.error('не согласованы скобки')
-        process.exit(1)
+        throw new Error(`Не согласованы скобки`)
     }
 }
 
