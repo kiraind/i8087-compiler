@@ -26,6 +26,12 @@ const replacements = {
     'ln': x => ['(', '1', 'ylb', '(', ...x, ')', '/', '__FLDL2E', ')'],
     'lg': x => ['(', '1', 'ylb', '(', ...x, ')', '/', '__FLDL2T', ')'],
     'lb': x => ['(', '1', 'ylb', '(', ...x, ')', ')'],
+    'pwr2': x => [ '(', 'pwr2p', '(', ...x, ')', '*', 'fscale', '(', ...x, ')', ')' ],
+    'pwr2p': x => [
+        '(', 'x2m1', '(', 
+            'prem', '(', ...x, ')',
+        ')', '+', '1', ')'
+    ]
 }
 
 const conversion_consts = {
@@ -36,6 +42,8 @@ const conversion_consts = {
 
 const postfix_fns = {}
 const prefix_fns = {
+    'prem': 20,
+    'fscale': 20,
     'sin': 20,
     'cos': 20,
     'tg': 20,
@@ -64,36 +72,44 @@ let postfix_symbols = []
 
 const infix_symbols = parse(infix)
 
-for(let i = 0; i < infix_symbols.length; i++) {
-    // replace substituted functions
-    if(infix_symbols[i] in replacements) {
-        const fn = infix_symbols[i]
-        i++
-        const start_i = i + 1
-        
-        if(infix_symbols[i] === '(') {
-            let level = 1
-            while(level > 0) {
-                i++
-                if(infix_symbols[i] === '(') {
-                    level++
-                } else if(infix_symbols[i] === ')') {
-                    level--
+let replaced = 0
+
+do {
+    replaced = 0
+    for(let i = 0; i < infix_symbols.length; i++) {
+        // replace substituted functions
+        if(infix_symbols[i] in replacements) {
+            const fn = infix_symbols[i]
+            i++
+            const start_i = i + 1
+            
+            if(infix_symbols[i] === '(') {
+                let level = 1
+                while(level > 0) {
+                    i++
+                    if(infix_symbols[i] === '(') {
+                        level++
+                    } else if(infix_symbols[i] === ')') {
+                        level--
+                    }
                 }
+            } else {
+                throw new Error(`Отсутствует открывающая скобка после функции '${fn}'`)
             }
-        } else {
-            throw new Error(`Отсутствует открывающая скобка после функции '${fn}'`)
-        }
 
-        if(start_i == i) {
-            throw new Error(`Пустой аргумент у функции '${fn}'`)
-        }
+            if(start_i == i) {
+                throw new Error(`Пустой аргумент у функции '${fn}'`)
+            }
 
-        const argument = infix_symbols.slice(start_i, i)
-        const replacement = replacements[fn](argument)
-        infix_symbols.splice(start_i - 2, 2 + (i - start_i) + 1, ...replacement)
+            
+            const argument = infix_symbols.slice(start_i, i)
+            const replacement = replacements[fn](argument)
+            infix_symbols.splice(start_i - 2, 2 + (i - start_i) + 1, ...replacement)
+        
+            replaced += 1
+        }
     }
-}
+} while (replaced > 0)
 
 // Shunting-yard algorithm https://en.wikipedia.org/wiki/Shunting-yard_algorithm
 infix_symbols.forEach(symbol => {
@@ -177,22 +193,22 @@ postfix_symbols.forEach(symbol => {
     } else {
     // operators
         if(symbol === '+') {
-            code.push('faddp')
+            code.push('faddp st(1),st(0)')
             const b = data_stack.pop()
             const a = data_stack.pop()
             data_stack.push(`(${a} + ${b})`)
         } else if(symbol === '-') {
-            code.push('fsubp')
+            code.push('fsubp st(1),st(0)')
             const b = data_stack.pop()
             const a = data_stack.pop()
             data_stack.push(`(${a} - ${b})`)
         } else if(symbol === '*') {
-            code.push('fmulp')
+            code.push('fmulp st(1),st(0)')
             const b = data_stack.pop()
             const a = data_stack.pop()
             data_stack.push(`(${a} * ${b})`)
         } else if(symbol === '/') {
-            code.push('fdivp')
+            code.push('fdivp st(1),st(0)')
             const b = data_stack.pop()
             const a = data_stack.pop()
             data_stack.push(`(${a} / ${b})`)
@@ -201,6 +217,29 @@ postfix_symbols.forEach(symbol => {
             const b = data_stack.pop()
             const a = data_stack.pop()
             data_stack.push(`(${a} * lb(${b}))`)
+        } else if(symbol === 'prem') {
+            code.push(`
+                fld1
+                fxch
+                fprem1
+                fxch
+                fincstp
+            `)
+            
+            const a = data_stack.pop()
+
+            data_stack.push(`prem(${a})`)
+        } else if(symbol === 'fscale') {
+            code.push(`
+                fld1
+                fscale
+                fxch
+                fincstp
+            `)
+            
+            const a = data_stack.pop()
+
+            data_stack.push(`2^(${a})`)
         } else if(symbol === 'sin') {
             code.push('fsin')
             const a = data_stack.pop()
@@ -210,7 +249,7 @@ postfix_symbols.forEach(symbol => {
             const a = data_stack.pop()
             data_stack.push(`sin(${a})`)
         } else if(symbol === 'tg') {
-            code.push('fptan\nfincstp')
+            code.push('fptan\nfdiv')
             const a = data_stack.pop()
             data_stack.push(`tg(${a})`)
         } else if(symbol === 'arctg') {
