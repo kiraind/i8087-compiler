@@ -81,3 +81,7 @@ fsqrt;          sqrt(((2 * a) * sin(x)))
 fst y
 
 ```
+
+Полезные ссылки:
+
+1. [Описания команд сопроцессора](https://prog-cpp.ru/asm-coprocessor-command/)
